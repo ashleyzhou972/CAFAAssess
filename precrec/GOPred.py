@@ -301,14 +301,22 @@ class PrecRec:
         # term: single GO term to be propagated
         # true_terms: set of true terms
 
-        pred_terms = self.get_ancestors(term)
+        if term in self.ancestors:
+            pred_terms = self.get_ancestors(term)
+        else:
+            pred_terms = set([term])
+            print("No ancestors for %s" % term)
         pred_terms.add(term)
         prot_true_terms = self.true_terms[protein]
-        precision = len(pred_terms & prot_true_terms) / len(pred_terms)
-        recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
+        if not prot_true_terms:
+            precision, recall = None, None
+        else:
+            precision = len(pred_terms & prot_true_terms) / len(pred_terms)
+            recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
         return (precision, recall)
 
 def precision_recall(prediction, benchmark_path, ancestors_path):
+    # BUG: ancestors file does not contain alt-IDs
     # accepts a GOPred instantiation
     # does precision / recall calculation
     # TODO: take care of threshold!!
@@ -320,11 +328,22 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
         for protein in prediction.data:
             for term_thresh in prediction.data[protein]:
                 term = term_thresh['term']
-                thresh_level = term_thresh['threshold']
-                if threhsold >= thresh_level:
+                thresh_level = term_thresh['confidence']
+                if threshold >= thresh_level:
                     precision, recall = prec_rec.term_precision_recall(protein, term)
-                    prec_rec_vector.append((precision, recall))
+                    if precision != None:
+                        prec_rec_vector.append((precision, recall))
     return prec_rec_vector
+
+def stub(prediction_path, benchmark_path, ancestors_path):
+    # Just a stub to test stuff
+    mypred = GOPred()
+    mypred.read(prediction_path)
+    prec_rec_vector = []
+    prec_rec = PrecRec()
+    prec_rec.read_ancestors(ancestors_path)
+    prec_rec.read_benchmark(benchmark_path)
+    return mypred, prec_rec
 
 
 if __name__ == '__main__':
