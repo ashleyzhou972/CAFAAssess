@@ -311,28 +311,51 @@ class PrecRec:
         if not prot_true_terms:
             precision, recall = None, None
         else:
+            # TP / (TP+FP)
             precision = len(pred_terms & prot_true_terms) / len(pred_terms)
+            # TP / (TP+FN)
             recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
         return (precision, recall)
 
 def precision_recall(prediction, benchmark_path, ancestors_path):
-    # BUG: ancestors file does not contain alt-IDs
     # accepts a GOPred instantiation
     # does precision / recall calculation
     # TODO: take care of threshold!!
+    done_proteins = set({})
+    prec = defaultdict(float)
+    rec = defaultdict(float)
+    mprot = defaultdict(int)
     prec_rec_vector = []
     prec_rec = PrecRec()
+
     prec_rec.read_ancestors(ancestors_path)
     prec_rec.read_benchmark(benchmark_path)
+    prec_rec.propagate_true_terms()
+    nprot = len(prec_rec.true_terms)
     for threshold in [i*0.01 for i in range(1,101)]:
-        for protein in prediction.data:
+        threshold_s = "%.2f" % threshold
+        # loop over all proteins for which we have a true prediction
+        for protein in prec_rec.true_terms:
+            if protein in done_proteins:
+                continue
+            if protein not in prediction.data:
+                continue
             for term_thresh in prediction.data[protein]:
                 term = term_thresh['term']
-                thresh_level = term_thresh['confidence']
-                if threshold >= thresh_level:
+                confidence = term_thresh['confidence']
+                if confidence > threshold:
                     precision, recall = prec_rec.term_precision_recall(protein, term)
+                    done_proteins.add(protein)
+                    mprot[threshold_s] += 1
                     if precision != None:
-                        prec_rec_vector.append((precision, recall))
+                        prec[threshold_s] += precision
+                        rec[threshold_s] += recall
+        if threshold_s in mprot:
+            print( threshold_s, mprot[threshold_s])
+            prec[threshold_s] /= mprot[threshold_s]
+            rec[threshold_s] /= nprot
+            prec_rec_vector.append((prec[threshold_s], rec[threshold_s])) 
+
     return prec_rec_vector
 
 def stub(prediction_path, benchmark_path, ancestors_path):
@@ -343,6 +366,7 @@ def stub(prediction_path, benchmark_path, ancestors_path):
     prec_rec = PrecRec()
     prec_rec.read_ancestors(ancestors_path)
     prec_rec.read_benchmark(benchmark_path)
+    prec_rec.propagate_true_terms()
     return mypred, prec_rec
 
 
