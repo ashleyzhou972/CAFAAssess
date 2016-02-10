@@ -301,6 +301,8 @@ class PrecRec:
         # term: single GO term to be propagated
         # true_terms: set of true terms
 
+        # pred_terms: a set of all ancestors of this term, including 
+        # the term itself.
         if term in self.ancestors:
             pred_terms = self.get_ancestors(term)
         else:
@@ -315,7 +317,16 @@ class PrecRec:
             precision = len(pred_terms & prot_true_terms) / len(pred_terms)
             # TP / (TP+FN)
             recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
+        if prot_true_terms and precision > 0 and recall >0:
+            print("*********")
+            print(protein)
+            print("TRUE TERMS")
+            print(prot_true_terms)
+            print("PREDICTED")
+            print(term,pred_terms)
+            print(precision, recall)
         return (precision, recall)
+
 
 def precision_recall(prediction, benchmark_path, ancestors_path):
     # accepts a GOPred instantiation
@@ -324,7 +335,7 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
     done_proteins = set({})
     prec = defaultdict(float)
     rec = defaultdict(float)
-    mprot = defaultdict(int)
+    mprot = defaultdict(set)
     prec_rec_vector = []
     prec_rec = PrecRec()
 
@@ -335,28 +346,50 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
     for threshold in [i*0.01 for i in range(1,101)]:
         threshold_s = "%.2f" % threshold
         # loop over all proteins for which we have a true prediction
-        for protein in prec_rec.true_terms:
-            if protein in done_proteins:
-                continue
-            if protein not in prediction.data:
-                continue
-            for term_thresh in prediction.data[protein]:
-                term = term_thresh['term']
-                confidence = term_thresh['confidence']
+        for protein in prediction.data:
+            for u in prediction.data[protein]:
+                term = u['term']
+                confidence = u['confidence']
                 if confidence > threshold:
                     precision, recall = prec_rec.term_precision_recall(protein, term)
-                    done_proteins.add(protein)
-                    mprot[threshold_s] += 1
+                    # done_proteins.add(protein)
                     if precision != None:
                         prec[threshold_s] += precision
                         rec[threshold_s] += recall
+                        mprot[threshold_s].add(protein)
         if threshold_s in mprot:
-            print( threshold_s, mprot[threshold_s])
-            prec[threshold_s] /= mprot[threshold_s]
+            # print( threshold_s, len(mprot[threshold_s]))
+            prec[threshold_s] /= len(mprot[threshold_s])
             rec[threshold_s] /= nprot
             prec_rec_vector.append((prec[threshold_s], rec[threshold_s])) 
 
     return prec_rec_vector
+
+def prediction_ontology_split(pred_path,mfo_terms, bpo_terms, cco_terms):
+    """
+    Separate the prediction file into the different ontologies
+    """
+    
+    all_pred = GOPred()
+    all_pred.read(pred_path)
+    mfo_out = open("%s_MFO.txt" % os.path.splitext(pred_path),"w")
+    bpo_out = open("%s_BPO.txt" % os.path.splitext(pred_path),"w")
+    cco_out = open("%s_CCO.txt" % os.path.splitext(pred_path),"w")
+
+    for u in all_pred.data:
+        if u['term'] in bpo_terms:
+            bpo_out.write("%s\t%.2f\n" % u)
+        elif u['term'] in mfo_terms:
+            mfo_out.write("%s\t%.2f\n" % u)
+        elif u['term'] in cco_terms:
+            cco.write("%s\t%.2f\n" % u)
+        else:
+            raise ValueError ("Term %s not found in any ontology" % u['term'])
+            
+    
+    mfo_out.close()
+    bpo_out.close()
+    cco_out.close()
 
 def stub(prediction_path, benchmark_path, ancestors_path):
     # Just a stub to test stuff
