@@ -367,23 +367,24 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
 
     return prec_rec_vector
 
-def prediction_ontology_split_write(pred_path,mfo_terms, bpo_terms, cco_terms):
+def prediction_ontology_split_write(pred_path, obo_path):
     """
     Separate the prediction file into the different ontologies
     """
     
     all_pred = GOPred()
     all_pred.read(pred_path)
+    go_graph = OboReader(open(obo_path)).read()
     mfo_out = open("%s_MFO.txt" % os.path.splitext(pred_path),"w")
     bpo_out = open("%s_BPO.txt" % os.path.splitext(pred_path),"w")
     cco_out = open("%s_CCO.txt" % os.path.splitext(pred_path),"w")
 
     for u in all_pred.data:
-        if u['term'] in bpo_terms:
+        if go_graph.get_namespace(go_graph.get_term(u['term'])) == 'molecular_function': 
+            mfo_out.write("%s\t%.2f\n" % (u['term'], u['confidence']))
+        elif go_graph.get_namespace(go_graph.get_term(u['term'])) == 'biological_process': 
             bpo_out.write("%s\t%.2f\n" % (u['term'], u['confidence']))
-        elif u['term'] in mfo_terms:
-            cco_out.write("%s\t%.2f\n" % (u['term'], u['confidence']))
-        elif u['term'] in cco_terms:
+        elif go_graph.get_namespace(go_graph.get_term(u['term'])) == 'cellular_component': 
             cco_out.write("%s\t%.2f\n" % (u['term'], u['confidence']))
         else:
             raise ValueError ("Term %s not found in any ontology" % u['term'])
