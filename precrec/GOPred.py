@@ -15,7 +15,9 @@
 
 import re
 import sys
+import os
 from collections import defaultdict
+from pyGO.obo2ancestors.Ontology.IO import OboIO
 
 
 pr_field = re.compile("^PR=[0,1]\.[0-9][0-9];$")
@@ -374,7 +376,7 @@ def prediction_ontology_split_write(pred_path, obo_path):
     
     all_pred = GOPred()
     all_pred.read(pred_path)
-    go_graph = OboReader(open(obo_path)).read()
+    go_graph = OboIO.OboReader(open(obo_path)).read()
     mfo_out = open("%s_MFO.txt" % os.path.splitext(pred_path),"w")
     bpo_out = open("%s_BPO.txt" % os.path.splitext(pred_path),"w")
     cco_out = open("%s_CCO.txt" % os.path.splitext(pred_path),"w")
@@ -396,20 +398,20 @@ def prediction_ontology_split_write(pred_path, obo_path):
 
 def go_ontology_split_write(obo_path):
     """
-    Split an obo file into three files with separate namespaces
+    Split a GO obo file into three files with separate namespaces
     """
     obo_mfo_out = open("%s_mfo.obo" % os.path.splitext(obo_path)[0],"w")
     obo_bpo_out = open("%s_bpo.obo" % os.path.splitext(obo_path)[0],"w")
     obo_cco_out = open("%s_cco.obo" % os.path.splitext(obo_path)[0],"w")
-    obo_parser = OboReader(open(obo_path))
-    ontology = obo_parser.read()
-    for node in ontology.nodes:
-        if ontology.namespace[node.label] == "molecular_function":
-            obo_mfo_out.write("%s\n" % node.label)
-        elif ontology.namespace[node.label] == "biological_process":
-            obo_bpo_out.write("%s\n" % node.label)
-        elif ontology.namespace[node.label] == "cellular_component":
-            obo_cco_out.write("%s\n" % node.label)
+    obo_parser = OboIO.OboReader(open(obo_path))
+    go = obo_parser.read()
+    mfo_terms, bpo_terms, cco_terms = go_ontology_split(go)
+    for term in mfo_terms:
+        obo_mfo_out.write("%s\n" % term)
+    for term in bpo_terms:
+        obo_bpo_out.write("%s\n" % term)
+    for term in cco_terms:
+        obo_cco_out.write("%s\n" % term)
 
     obo_mfo_out.close()
     obo_bpo_out.close()
@@ -417,18 +419,18 @@ def go_ontology_split_write(obo_path):
 
 def go_ontology_split(ontology):
     """
-    Split an obo file into three files with separate namespaces
+    Split an GO ontology into three ontologies
     """
     mfo_terms = set({})
     bpo_terms = set({})
     cco_terms = set({})
     for node in ontology.nodes:
-        if ontology.namespace[node.label] == "molecular_function":
-            mfo_terms.add(node.label)
-        elif ontology.namespace[node.label] == "biological_process":
-            bpo_terms.add(node.label)
-        elif ontology.namespace[node.label] == "cellular_component":
-            cco_terms.add(node.label)
+        if ontology.namespace[node] == "molecular_function":
+            mfo_terms.add(node)
+        elif ontology.namespace[node] == "biological_process":
+            bpo_terms.add(node)
+        elif ontology.namespace[node] == "cellular_component":
+            cco_terms.add(node)
     return (mfo_terms, bpo_terms, cco_terms)
 
 def stub(prediction_path, benchmark_path, ancestors_path):
