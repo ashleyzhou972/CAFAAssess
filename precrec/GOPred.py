@@ -319,20 +319,29 @@ class PrecRec:
         else:
             # TP / (TP+FP)
             precision = len(pred_terms & prot_true_terms) / len(pred_terms)
+            if precision > 1:
+                print("Precision=%.2f" % precision)
+                print("Term=%s" % term)
+                print("Protein=%s" % protein)
+                print("Predicted terms=%s" % str(pred_terms))
+                print("True terms=%s" % str(prot_true_terms))
+                raise ValueError
+
             # TP / (TP+FN)
             recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
         if prot_true_terms and precision > 0 and recall >0:
-            print("*********")
-            print(protein)
-            print("TRUE TERMS")
-            print(prot_true_terms)
-            print("PREDICTED")
-            print(term,pred_terms)
-            print(precision, recall)
+            pass
+#            print("*********")
+#            print(protein)
+#            print("TRUE TERMS")
+#            print(prot_true_terms)
+#            print("PREDICTED")
+#            print(term,pred_terms)
+#            print(precision, recall)
         return (precision, recall)
 
 
-def precision_recall(prediction, benchmark_path, ancestors_path):
+def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, namespace):
     # accepts a GOPred instantiation
     # does precision / recall calculation
     # TODO: take care of threshold!!
@@ -346,6 +355,12 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
     prec_rec.read_ancestors(ancestors_path)
     prec_rec.read_benchmark(benchmark_path)
     prec_rec.propagate_true_terms()
+
+
+    go_graph = OboIO.OboReader(open(go_path)).read()
+
+    prediction = GOPred()
+    prediction.read(prediction_path)
     nprot = len(prec_rec.true_terms)
     for threshold in [i*0.01 for i in range(1,101)]:
         threshold_s = "%.2f" % threshold
@@ -353,20 +368,22 @@ def precision_recall(prediction, benchmark_path, ancestors_path):
         for protein in prediction.data:
             for u in prediction.data[protein]:
                 term = u['term']
+                if go_graph.get_namespace(term) != namespace:
+                    continue
                 confidence = u['confidence']
                 if confidence > threshold:
                     precision, recall = prec_rec.term_precision_recall(protein, term)
                     # done_proteins.add(protein)
-                    if precision != None:
+                    if precision is not None:
                         prec[threshold_s] += precision
                         rec[threshold_s] += recall
                         mprot[threshold_s].add(protein)
         if threshold_s in mprot:
-            # print( threshold_s, len(mprot[threshold_s]))
             prec[threshold_s] /= len(mprot[threshold_s])
             rec[threshold_s] /= nprot
-            prec_rec_vector.append((prec[threshold_s], rec[threshold_s])) 
-
+            # recall on X axis, precision on Y axis
+            prec_rec_vector.append((rec[threshold_s], prec[threshold_s])) 
+        print(threshold_s, len(mprot[threshold_s]))
     return prec_rec_vector
 
 def prediction_ontology_split_write(pred_path, obo_path):
@@ -396,9 +413,34 @@ def prediction_ontology_split_write(pred_path, obo_path):
     bpo_out.close()
     cco_out.close()
 
+def go_ontology_ancestors_split_write(obo_path):
+    """
+    Input: an OBO file
+    Output: 3 files with ancestors
+    """
+    obo_mfo_out = open("%s_ancestors_mfo.txt" % (os.path.splitext(obo_path)[0]),"w")
+    obo_bpo_out = open("%s_ancestors_bpo.txt" % (os.path.splitext(obo_path)[0]),"w")
+    obo_cco_out = open("%s_ancestors_cco.txt" % (os.path.splitext(obo_path)[0]),"w")
+    obo_parser = OboIO.OboReader(open(obo_path))
+    go = obo_parser.read()
+    mfo_terms, bpo_terms, cco_terms = go_ontology_split(go)
+    for term in mfo_terms:
+        ancestors = go.get_ancestors(term)
+        obo_mfo_out.write("%s\t%s\n" % (term,",".join(ancestors)))
+    for term in bpo_terms:
+        ancestors = go.get_ancestors(term)
+        obo_bpo_out.write("%s\t%s\n" % (term,",".join(ancestors)))
+    for term in cco_terms:
+        ancestors = go.get_ancestors(term)
+        obo_cco_out.write("%s\t%s\n" % (term,",".join(ancestors)))
+
+    obo_mfo_out.close()
+    obo_bpo_out.close()
+    obo_cco_out.close()
+
 def go_ontology_split_write(obo_path):
     """
-    Split a GO obo file into three files with separate namespaces
+    Split a GO obo file into three files with different namespaces
     """
     obo_mfo_out = open("%s_mfo.obo" % os.path.splitext(obo_path)[0],"w")
     obo_bpo_out = open("%s_bpo.obo" % os.path.splitext(obo_path)[0],"w")
@@ -419,18 +461,20 @@ def go_ontology_split_write(obo_path):
 
 def go_ontology_split(ontology):
     """
-    Split an GO ontology into three ontologies
+    Split an GO obo file into three ontologies
     """
     mfo_terms = set({})
     bpo_terms = set({})
     cco_terms = set({})
-    for node in ontology.nodes:
+    for node in ontology.get_ids(): # loop over node IDs and alt_id's
         if ontology.namespace[node] == "molecular_function":
             mfo_terms.add(node)
         elif ontology.namespace[node] == "biological_process":
             bpo_terms.add(node)
         elif ontology.namespace[node] == "cellular_component":
             cco_terms.add(node)
+        else:
+            raise(ValueError,"%s has no namespace" % node)
     return (mfo_terms, bpo_terms, cco_terms)
 
 def stub(prediction_path, benchmark_path, ancestors_path):
@@ -439,7 +483,9 @@ def stub(prediction_path, benchmark_path, ancestors_path):
     mypred.read(prediction_path)
     prec_rec_vector = []
     prec_rec = PrecRec()
+    # Read ancestors for a given ontology (mfo, bpo, or cco)
     prec_rec.read_ancestors(ancestors_path)
+    # Read benchmark for a given ontology (mfo, bpo, or cco)
     prec_rec.read_benchmark(benchmark_path)
     prec_rec.propagate_true_terms()
     return mypred, prec_rec
