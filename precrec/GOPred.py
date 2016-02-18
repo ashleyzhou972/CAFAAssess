@@ -18,6 +18,8 @@ import sys
 import os
 from collections import defaultdict
 from pyGO.obo2ancestors.Ontology.IO import OboIO
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 pr_field = re.compile("^PR=[0,1]\.[0-9][0-9];$")
@@ -293,7 +295,7 @@ class PrecRec:
                 try:
                     ancestors = self.get_ancestors(term)
                 except KeyError:
-                    print("not found %s" % term) 
+                    sys.stderr.write("not found %s\n" % term) 
                 self.true_terms[protein].add(term) # Add the base term
                 self.true_terms[protein] |= ancestors # Add all ancestors
 
@@ -311,7 +313,7 @@ class PrecRec:
             pred_terms = self.get_ancestors(term)
         else:
             pred_terms = set([term])
-            print("No ancestors for %s" % term)
+            sys.stderr.write("No ancestors for %s\n" % term)
         pred_terms.add(term)
         prot_true_terms = self.true_terms[protein]
         if not prot_true_terms:
@@ -319,16 +321,17 @@ class PrecRec:
         else:
             # TP / (TP+FP)
             precision = len(pred_terms & prot_true_terms) / len(pred_terms)
-            if precision > 1:
-                print("Precision=%.2f" % precision)
-                print("Term=%s" % term)
-                print("Protein=%s" % protein)
-                print("Predicted terms=%s" % str(pred_terms))
-                print("True terms=%s" % str(prot_true_terms))
+            recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
+            if precision > 1 or recall > 1:
+                sys.stderr.write("Precision=%.2f\n" % precision)
+                sys.stderr.write("Recall=%.2f\n" % recall)
+                sys.stderr.write("Term=%s\n" % term)
+                sys.stderr.write("Protein=%s\n" % protein)
+                sys.stderr.write("Predicted terms=%s\n" % str(pred_terms))
+                sys.stderr.write("True terms=%s\n" % str(prot_true_terms))
                 raise ValueError
 
             # TP / (TP+FN)
-            recall = len(pred_terms & prot_true_terms) / len(prot_true_terms)
         if prot_true_terms and precision > 0 and recall >0:
             pass
 #            print("*********")
@@ -375,15 +378,24 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
                     precision, recall = prec_rec.term_precision_recall(protein, term)
                     # done_proteins.add(protein)
                     if precision is not None:
-                        prec[threshold_s] += precision
-                        rec[threshold_s] += recall
+                        prec[(threshold_s,protein)] += precision
+                        rec[(threshold_s,protein)] += recall
                         mprot[threshold_s].add(protein)
         if threshold_s in mprot:
-            prec[threshold_s] /= len(mprot[threshold_s])
-            rec[threshold_s] /= nprot
+            prec_sum = 0.
+            rec_sum = 0.
+            for p in mprot[threshold_s]:
+                prec_sum += prec[(threshold_s,p)] 
+            for p in prec_rec.true_terms:
+                rec_sum += rec[(threshold_s,p)]
+                
+            precision = prec_sum / len(mprot[threshold_s])
+            recall = rec_sum / nprot
             # recall on X axis, precision on Y axis
-            prec_rec_vector.append((rec[threshold_s], prec[threshold_s])) 
-        print(threshold_s, len(mprot[threshold_s]))
+            prec_rec_vector.append((recall, precision)) 
+            
+            sys.stderr.write("%.2f\t%.2f\t%s\t%d\t%d\n" % (recall, precision, threshold_s, len(mprot[threshold_s]),nprot))
+            # sys.stderr.write("%s\t%d\n" % (threshold_s, len(mprot[threshold_s])))
     return prec_rec_vector
 
 def prediction_ontology_split_write(pred_path, obo_path):
@@ -492,9 +504,8 @@ def stub(prediction_path, benchmark_path, ancestors_path):
 
 
 if __name__ == '__main__':
-    my_gopred = GOPred()
-    my_gopred.read(sys.argv[1]) # Read a prediction
-    for i in list(my_gopred.data.items())[:10]:
-        print(i)
-
-    
+    if len(sys.argv) != 6:
+        raise ValueError("Usage: ./GOPred.py prediction_path benchmark_path ancestors_path go_path namespace")
+    prv = precision_recall(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
+    plt.plot([i[0] for i in prv],[i[1] for i in prv])
+    plt.show()

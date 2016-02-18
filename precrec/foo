@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "./GOPred.py", line 500, in <module>
+    prv = precision_recall(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
+  File "./GOPred.py", line 389, in precision_recall
+    sys.stderr.write(threshold_s, len(mprot[threshold_s]))
+TypeError: write() takes exactly 1 argument (2 given)
