@@ -334,13 +334,9 @@ class PrecRec:
             # TP / (TP+FN)
         if prot_true_terms and precision > 0 and recall >0:
             pass
-#            print("*********")
-#            print(protein)
-#            print("TRUE TERMS")
-#            print(prot_true_terms)
-#            print("PREDICTED")
-#            print(term,pred_terms)
-#            print(precision, recall)
+            sys.stderr.write("*********\n")
+            sys.stderr.write("%s\t%s\t%s\n" % (protein, precision, recall))
+            sys.stderr.flush()
         return (precision, recall)
 
 
@@ -352,9 +348,11 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
     prec = defaultdict(float)
     rec = defaultdict(float)
     mprot = defaultdict(set)
+    zprot = defaultdict(int)
+    done_predictions = {}
     prec_rec_vector = []
-    prec_rec = PrecRec()
 
+    prec_rec = PrecRec()
     prec_rec.read_ancestors(ancestors_path)
     prec_rec.read_benchmark(benchmark_path)
     prec_rec.propagate_true_terms()
@@ -378,9 +376,10 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
                     precision, recall = prec_rec.term_precision_recall(protein, term)
                     # done_proteins.add(protein)
                     if precision is not None:
-                        prec[(threshold_s,protein)] += precision
-                        rec[(threshold_s,protein)] += recall
+                        prec[(threshold_s,protein)] += precision # was +=
+                        rec[(threshold_s,protein)] += recall # was +=
                         mprot[threshold_s].add(protein)
+                        zprot[threshold_s] += 1
         if threshold_s in mprot:
             prec_sum = 0.
             rec_sum = 0.
@@ -389,7 +388,8 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
             for p in prec_rec.true_terms:
                 rec_sum += rec[(threshold_s,p)]
                 
-            precision = prec_sum / len(mprot[threshold_s])
+            #precision = prec_sum / len(mprot[threshold_s])
+            precision = prec_sum / zprot[threshold_s]
             recall = rec_sum / nprot
             # recall on X axis, precision on Y axis
             prec_rec_vector.append((recall, precision)) 
@@ -507,5 +507,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 6:
         raise ValueError("Usage: ./GOPred.py prediction_path benchmark_path ancestors_path go_path namespace")
     prv = precision_recall(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
-    plt.plot([i[0] for i in prv],[i[1] for i in prv])
+    print(prv[:5])
+    plt.plot([i[0] for i in prv],[i[1] for i in prv],'ro',ls='-')
+    plt.axis([0, 1, 0, 1])
     plt.show()
