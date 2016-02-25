@@ -16,6 +16,7 @@
 import re
 import sys
 import os
+import gzip
 from collections import defaultdict
 from pyGO.obo2ancestors.Ontology.IO import OboIO
 import matplotlib.pyplot as plt
@@ -176,7 +177,7 @@ class GOPred:
             raise ValueError(errmsg)
 
 
-    def read(self, inpath):
+    def read(self, inpred):
         visited_states = []
         s_token = 0
         n_accuracy = 0
@@ -185,73 +186,75 @@ class GOPred:
         first_keywords = True
         n_models = 0
 
-        with open(inpath) as inpred:
-            for inline in inpred: 
-                inrec = [i.strip() for i in inline.split()]
-                field1 = inrec[0]
-                # Check which field type (state) we are in
-                if field1 == "AUTHOR":
-                    state = "author"
-                elif field1 == "MODEL":
-                    state = "model"
-                elif field1 == "KEYWORDS":
-                    state = "keywords"
-                elif field1 == "ACCURACY":
-                    state = "accuracy"
-                elif field1 == "END":
-                    state = "end"
-                else: #default to prediction state
-                    state = "go_prediction"
-                # Check for errors according to state
-                if state == "author":
-                    correct,errmsg = self._author_check(inline)
-                    self._handle_error(correct, errmsg,inline)
+        for inline in inpred: 
+            # gzipped files are in bytes. Need to convert to utf-8
+            if type(inline) is bytes:
+                inline = inline.decode("utf-8")
+            inrec = [i.strip() for i in inline.split()]
+            field1 = inrec[0]
+            # Check which field type (state) we are in
+            if field1 == "AUTHOR":
+                state = "author"
+            elif field1 == "MODEL":
+                state = "model"
+            elif field1 == "KEYWORDS":
+                state = "keywords"
+            elif field1 == "ACCURACY":
+                state = "accuracy"
+            elif field1 == "END":
+                state = "end"
+            else: #default to prediction state
+                state = "go_prediction"
+            # Check for errors according to state
+            if state == "author":
+                correct,errmsg = self._author_check(inline)
+                self._handle_error(correct, errmsg,inline)
+                visited_states.append(state)
+            elif state == "model":
+                n_models += 1
+                n_accuracy = 0
+                if n_models > 3:
+                    raise ValueError("Too many models. Only up to 3 allowed")
+                correct,errmsg = self._model_check(inline)
+                self._handle_error(correct, errmsg,inline)
+                if n_models == 1:
                     visited_states.append(state)
-                elif state == "model":
-                    n_models += 1
-                    n_accuracy = 0
-                    if n_models > 3:
-                        raise ValueError("Too many models. Only up to 3 allowed")
-                    correct,errmsg = self._model_check(inline)
-                    self._handle_error(correct, errmsg,inline)
-                    if n_models == 1:
-                        visited_states.append(state)
-                elif state == "keywords":
-                    if first_keywords:
-                        visited_states.append(state)
-                        first_keywords = False
-                    correct, errmsg = self._keywords_check(inline)
-                    self._handle_error(correct, errmsg,inline)
-                elif state == "accuracy":
-                    if first_accuracy:
-                        visited_states.append(state)
-                        first_accuracy = False
-                    n_accuracy += 1
-                    if n_accuracy > 3:
-                        self._handle_error(False, "ACCURACY: too many ACCURACY records")
-                    else:
-                        correct, errmsg = self._accuracy_check(inline)
-                elif state == "go_prediction":
-                    correct, errmsg = self._go_prediction_check(inline)
-                    self._handle_error(correct, errmsg,inline)
-                    if first_prediction:
-                        visited_states.append(state)
-                        first_prediction = False
-                elif state == "end":
-                    correct, errmsg = self._end_check(inline)
-                    self._handle_error(correct, errmsg,inline)
+            elif state == "keywords":
+                if first_keywords:
                     visited_states.append(state)
+                    first_keywords = False
+                correct, errmsg = self._keywords_check(inline)
+                self._handle_error(correct, errmsg,inline)
+            elif state == "accuracy":
+                if first_accuracy:
+                    visited_states.append(state)
+                    first_accuracy = False
+                n_accuracy += 1
+                if n_accuracy > 3:
+                    self._handle_error(False, "ACCURACY: too many ACCURACY records")
+                else:
+                    correct, errmsg = self._accuracy_check(inline)
+            elif state == "go_prediction":
+                correct, errmsg = self._go_prediction_check(inline)
+                self._handle_error(correct, errmsg,inline)
+                if first_prediction:
+                    visited_states.append(state)
+                    first_prediction = False
+            elif state == "end":
+                correct, errmsg = self._end_check(inline)
+                self._handle_error(correct, errmsg,inline)
+                visited_states.append(state)
             # End file forloop
-            if (visited_states != legal_states1 and
-                visited_states != legal_states2 and
-                visited_states != legal_states3 and
-                visited_states != legal_states4):
-                print (visited_states)
-                print ("file not formatted according to CAFA specs")
-                print ("Check whether all these record types are in your file")
-                print ("Check whether all these record types are in your file in the correct order")
-                print ("AUTHOR, MODEL, KEYWORDS, ACCURACY (optional), predictions, END")
-                raise ValueError
+        if (visited_states != legal_states1 and
+            visited_states != legal_states2 and
+            visited_states != legal_states3 and
+            visited_states != legal_states4):
+            print (visited_states)
+            print ("file not formatted according to CAFA specs")
+            print ("Check whether all these record types are in your file")
+            print ("Check whether all these record types are in your file in the correct order")
+            print ("AUTHOR, MODEL, KEYWORDS, ACCURACY (optional), predictions, END")
+            raise ValueError
 
 class PrecRec:
     """
@@ -261,10 +264,16 @@ class PrecRec:
         self.ancestors = {}
 
         # Key: protein; Value: set of true terms from CAFA benchmark
-        self._true_base_terms = defaultdict(set)
+        self.true_base_terms = defaultdict(set)
 
         # Key: protein; value: set of terms from CAFA benchmark, and their ancestors
         self.true_terms = defaultdict(set)
+
+        # Key: protein; Value: set of predicted terms 
+        self.predicted_base_terms = defaultdict(set)
+
+        # Key: protein; Value: set of predicted terms and their ancestors 
+        self.predicted_terms = defaultdict(set)
 
     def read_ancestors(self,ancestors_path):
         # Call this method first, populates self.ancestors
@@ -282,22 +291,38 @@ class PrecRec:
                     self.ancestors[term] = set(term_ancestors.split(','))
 
     def read_benchmark(self, benchmark_path):
+        # Call this second. 
         # Read the benchmark file that contains the true annotations
-        # 
         with open(benchmark_path) as benchmark_input:
             for inline in benchmark_input:
                 protein, term = inline.strip().split('\t')
                 self._true_base_terms[protein].add(term)
 
     def propagate_true_terms(self):
-        for protein in self._true_base_terms:
-            for term in self._true_base_terms[protein]:
+        # Call this method third. After this method is run, 
+        # we have all the true terms for this protein
+        for protein in self.true_base_terms:
+            for term in self.true_base_terms[protein]:
                 try:
                     ancestors = self.get_ancestors(term)
                 except KeyError:
                     sys.stderr.write("not found %s\n" % term) 
                 self.true_terms[protein].add(term) # Add the base term
                 self.true_terms[protein] |= ancestors # Add all ancestors
+
+    def get_predicted_terms(self, gopred):
+        for i in gopred.data:
+            self.predicted_base_terms.add(i[0])
+
+    def propagate_predicted_terms(self):
+        for protein in self.predicted_base_terms:
+            for term in self.predicted_base_terms[protein]:
+                try:
+                    ancestors = self.get_ancestors(term)
+                except KeyError:
+                    sys.stderr.write("not found %s\n" % term) 
+                self.predicted_terms[protein].add(term) # Add the base term
+                self.predicted_terms[protein] |= ancestors # Add all ancestors
 
     def get_ancestors(self,term):
         return self.ancestors[term]
@@ -332,13 +357,39 @@ class PrecRec:
                 raise ValueError
 
             # TP / (TP+FN)
-        if prot_true_terms and precision > 0 and recall >0:
+        if prot_true_terms and precision > 1 and recall >1:
             pass
             sys.stderr.write("*********\n")
             sys.stderr.write("%s\t%s\t%s\n" % (protein, precision, recall))
             sys.stderr.flush()
         return (precision, recall)
 
+def f_1(precision, recall):
+    return 2 * (precision * recall) / (precision +  recall)
+
+def f_max(prec_rec_vector):
+    f1_max = 0.
+    for recall, precision in prec_rec_vector:
+        cur_f1  = f_1(precision, recall)
+        if cur_f1 > f1_max:
+            f1_max = cur_f1
+    return f1_max
+
+
+def get_predicted_terms(prediction_path, benchmark_path, ancestors_path, go_path, namespace):
+    
+    prediction = GOPred()
+    if os.path.splitext(prediction_path)[1] == ".gz":
+        inpred = gzip.open(prediction_path)
+    else:
+        inpred = open(prediction_path)
+    prediction.read(inpred)
+    inpred.close()
+
+    prec_rec = PrecRec()
+    prec_rec.read_ancestors(ancestors_path)
+    prec_rec.read_benchmark(benchmark_path)
+    prec_rec.propagate_true_terms()
 
 def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, namespace):
     # accepts a GOPred instantiation
@@ -361,11 +412,17 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
     go_graph = OboIO.OboReader(open(go_path)).read()
 
     prediction = GOPred()
-    prediction.read(prediction_path)
+    if os.path.splitext(prediction_path)[1] == ".gz":
+        inpred = gzip.open(prediction_path)
+    else:
+        inpred = open(prediction_path)
+    prediction.read(inpred)
+    inpred.close()
     nprot = len(prec_rec.true_terms)
     for threshold in [i*0.01 for i in range(1,101)]:
         threshold_s = "%.2f" % threshold
         # loop over all proteins for which we have a true prediction
+        # First get all the predicted terms and their ancestors.
         for protein in prediction.data:
             for u in prediction.data[protein]:
                 term = u['term']
@@ -383,13 +440,15 @@ def precision_recall(prediction_path, benchmark_path, ancestors_path, go_path, n
         if threshold_s in mprot:
             prec_sum = 0.
             rec_sum = 0.
+            prec_denom = 0.
             for p in mprot[threshold_s]:
                 prec_sum += prec[(threshold_s,p)] 
+                prec_denom += zprot[threshold_s]
             for p in prec_rec.true_terms:
                 rec_sum += rec[(threshold_s,p)]
                 
-            #precision = prec_sum / len(mprot[threshold_s])
-            precision = prec_sum / zprot[threshold_s]
+            #precision = prec_sum / zprot[threshold_s]
+            precision = prec_sum / prec_denom
             recall = rec_sum / nprot
             # recall on X axis, precision on Y axis
             prec_rec_vector.append((recall, precision)) 
@@ -508,6 +567,7 @@ if __name__ == '__main__':
         raise ValueError("Usage: ./GOPred.py prediction_path benchmark_path ancestors_path go_path namespace")
     prv = precision_recall(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
     print(prv[:5])
+    print("Fmax", f_max(prv))
     plt.plot([i[0] for i in prv],[i[1] for i in prv],'ro',ls='-')
     plt.axis([0, 1, 0, 1])
     plt.show()
