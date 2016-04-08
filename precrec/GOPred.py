@@ -18,7 +18,7 @@ import sys
 import os
 import gzip
 from collections import defaultdict
-from pyGO.obo2ancestors.Ontology.IO import OboIO
+from Ontology.IO import OboIO
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -177,7 +177,7 @@ class GOPred:
             raise ValueError(errmsg)
 
 
-    def read(self, inpred):
+    def read(self, pred_path):
         visited_states = []
         s_token = 0
         n_accuracy = 0
@@ -185,7 +185,7 @@ class GOPred:
         first_accuracy = True
         first_keywords = True
         n_models = 0
-
+	inline = open(pred_path)
         for inline in inpred: 
             # gzipped files are in bytes. Need to convert to utf-8
             if type(inline) is bytes:
