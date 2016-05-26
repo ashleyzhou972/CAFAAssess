@@ -17,7 +17,7 @@ import sys
 
 import gzip
 from collections import defaultdict
-os.chdir('/home/nzhou/git')
+#os.chdir('/home/nzhou/git')
 from Ontology.IO import OboIO
 from CAFAAssess.precrec.GOPred import GOPred
 

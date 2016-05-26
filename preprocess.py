@@ -13,7 +13,7 @@ including:
 """
 
 import os
-os.chdir('/home/nzhou/git')
+#os.chdir('/home/nzhou/git')
 from Ontology.IO import OboIO
 from CAFAAssess.precrec.GOPred import GOPred
 
@@ -22,6 +22,7 @@ def prediction_ontology_split_write(pred_path, obo_path):
     Separate the prediction file into the different ontologies
     pred_path should be a handle!!!!!!!!!!
     This should work
+    Original code by Dr. Friedberg
     Last edited by Ashley 05/11/2016
     """
     
@@ -52,6 +53,7 @@ def go_ontology_ancestors_split_write(obo_path):
     """
     Input: an OBO file
     Output: 3 files with ancestors
+    by Dr. Friedberg
     """
     obo_mfo_out = open("%s_ancestors_mfo.txt" % (os.path.splitext(obo_path)[0]),"w")
     obo_bpo_out = open("%s_ancestors_bpo.txt" % (os.path.splitext(obo_path)[0]),"w")
@@ -76,6 +78,7 @@ def go_ontology_ancestors_split_write(obo_path):
 def go_ontology_split_write(obo_path):
     """
     Split a GO obo file into three files with different namespaces
+    by Dr.Friedberg
     """
     obo_mfo_out = open("%s_mfo.obo" % os.path.splitext(obo_path)[0],"w")
     obo_bpo_out = open("%s_bpo.obo" % os.path.splitext(obo_path)[0],"w")
@@ -97,6 +100,7 @@ def go_ontology_split_write(obo_path):
 def go_ontology_split(ontology):
     """
     Split an GO obo file into three ontologies
+    by Dr. Friedberg
     """
     mfo_terms = set({})
     bpo_terms = set({})
@@ -116,7 +120,7 @@ def benchmark_species_split(benchmark_path,taxonid):
     '''
     This splits the benchmark file by species(taxon id)
     benchmark_path should be ontology-specific
-    Ashley 05/25/2016
+    by Ashley 05/25/2016
 
     '''
     out = open('%s_%s.txt' % (os.path.splitext(benchmark_path)[0],str(taxonid)),'w')
