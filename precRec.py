@@ -260,10 +260,12 @@ class PrecREC:
 
 if __name__=='__main__':
     
-    ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'   
+    ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'  
+    #This benchmark is the full BPO benchmark
     benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
     bench = benchmark(ancestor_path,benchmark_path)
     bench.propagate()
+    #This benchmark is the human only BPO benchmark
     hs = benchmark(ancestor_path,'/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO_9606.txt')
     hs.propagate()
     
