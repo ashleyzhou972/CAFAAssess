@@ -1,7 +1,8 @@
 ## CAFAAssess
 prediction files and ontology files should be preprocessed by preprocess.py
 
-precRec.py is the main function to use
+precRec.py is the main function to use.
+
 it depends on precrec/GOPred.py
 
 All GO files, benchmark files and test prediction files are in /precrec/. 
