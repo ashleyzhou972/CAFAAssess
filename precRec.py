@@ -18,7 +18,7 @@ import sys
 import gzip
 from collections import defaultdict
 #os.chdir('/home/nzhou/git')
-from Ontology.IO import OboIO
+#from Ontology.IO import OboIO
 from CAFAAssess.precrec.GOPred import GOPred
 
 
@@ -73,7 +73,6 @@ class PrecREC:
     A class for doing precision recall calculations
     Not necssarily curve computation
     read in ONTOLOGY-SPECIFIC prediction file
-    read in ONTOLOGY-SPECIFIC ancestor file
     #Do we need ONTOLOGY-SPECIFIC ontology file??
     '''
     def __init__(self, benchmark, GOPred):
@@ -103,7 +102,7 @@ class PrecREC:
         #
         self.predicted = defaultdict(defaultdict)
         for prot in GOPred.data:
-            if bench.true_terms[prot]!=set():
+            if benchmark.true_terms[prot]!=set():
                 '''
                 The protein is in the benchmark file
                 i.e. gained experimental annotation
@@ -274,7 +273,17 @@ if __name__=='__main__':
     all_pred.read(open(pred_path))
     b = PrecREC(bench,all_pred)
     c = PrecREC(hs,all_pred)
+    c.printConfidence('/home/nzhou/git/CAFAAssess/confidence/117/newconfdata.txt')
     print b.precision_recall(0.1)
     print c.precision_recall(0.1)
     print b.getNumProteins(0.1)
     print c.getNumProteins(0.1)
+    
+    '''
+    get confidence files for all human predictions for all top ten teams (model 1?)
+    in confidence.py
+    '''
+    
+    
+    
+    
