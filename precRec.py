@@ -11,11 +11,9 @@ dependency: -
 
 
 import os
-
-import re
 import sys
-
-import gzip
+import numpy
+import matplotlib.pyplot as plt
 from collections import defaultdict
 #os.chdir('/home/nzhou/git')
 #from Ontology.IO import OboIO
@@ -112,11 +110,11 @@ class PrecREC:
                     try:
                         ancterms = self.ancestors[tc['term']]
                     except KeyError:
-                        sys.stderr.write("%s not found\n" % tc['term'])
+                        #sys.stderr.write("%s not found\n" % tc['term'])
                         self.obsolete.add(tc['term'])
                         continue
                     if ancterms == set() and tc['term'] not in (u'GO:0003874', u'GO:0008150' , u'GO:0005575'):
-                        sys.stderr.write("no ancestors found for %s\n" % tc['term'])
+                        #sys.stderr.write("no ancestors found for %s\n" % tc['term'])
                         self.obsolete.add(tc['term'])
                         continue
                     
@@ -189,6 +187,7 @@ class PrecREC:
         if self.predicted[protein] is not None:
             for term in self.predicted[protein]:
                 if self.predicted[protein][term][0]>threshold:
+                    #greater but not greater or equal
                     count+=1
                     if self.predicted[protein][term][1] :
                         TP+=1
@@ -210,7 +209,7 @@ class PrecREC:
         '''
         this calculates the overall precision recall of the team, given a threshold,
         For one prediction file, i.e. for one species and one model!!!!
-        @TODO 05/24/2016: countb has been calculated over and over again for each threshold
+        05/24/2016: countb has been calculated over and over again for each threshold
         '''
         prec = float(0)
         self.counta[threshold] = 0
@@ -239,8 +238,26 @@ class PrecREC:
             print('number of proteins with at least one term above threshold: %s\n' % self.counta[threshold] )
         except KeyError:
             sys.stderr.write("Run precision_recall(%s) first\n" % str(threshold))
-        
-        
+            
+    def Fmax_output(self,interval):
+        '''
+        returns the fmax value AND outputs the precision-recall values for each threshold
+        This computes precision and recall for every threshold
+        interval is number of threshold values between 0 and 1:
+        e.g. interval = 9, thresholds: 0.   ,  0.125,  0.25 ,  0.375,  0.5  ,  0.625,  0.75 ,  0.875,  1. 
+        '''
+        fmax = 0
+        pre = []
+        rec = []
+        for thres in numpy.linspace(0,0.99,interval):
+            a,b = self.precision_recall(thres)
+            pre.append(a)
+            rec.append(b)
+            f = 2*a*b/(a+b)
+            if f>=fmax:
+                fmax = f
+        return (pre,rec,fmax)
+    
     def printConfidence(self,output_path):
         '''
         print confidence and True/False to a file
@@ -252,6 +269,8 @@ class PrecREC:
                 for term in self.predicted[prot]:
                     out.write("%s\t%s\n" % (self.predicted[prot][term][0],self.predicted[prot][term][1]))
         out.close()
+
+        
         
 
 
@@ -262,8 +281,8 @@ if __name__=='__main__':
     ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'  
     #This benchmark is the full BPO benchmark
     benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
-    bench = benchmark(ancestor_path,benchmark_path)
-    bench.propagate()
+    #bench = benchmark(ancestor_path,benchmark_path)
+    #bench.propagate()
     #This benchmark is the human only BPO benchmark
     hs = benchmark(ancestor_path,'/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO_9606.txt')
     hs.propagate()
@@ -271,14 +290,17 @@ if __name__=='__main__':
     all_pred = GOPred()
     pred_path ='/home/nzhou/git/CAFAAssess/confidence/117/PaccanaroLab_1_9606_BPO.txt'
     all_pred.read(open(pred_path))
-    b = PrecREC(bench,all_pred)
+    #b = PrecREC(bench,all_pred)
     c = PrecREC(hs,all_pred)
     c.printConfidence('/home/nzhou/git/CAFAAssess/confidence/117/newconfdata.txt')
-    print b.precision_recall(0.1)
+    #print b.precision_recall(0.1)
     print c.precision_recall(0.1)
-    print b.getNumProteins(0.1)
-    print c.getNumProteins(0.1)
-    
+    #print b.getNumProteins(0.1)
+    #print c.getNumProteins(0.1)
+    fm = c.Fmax_output(9)
+    plt.plot(fm[0],fm[1],'ro')
+    plt.axis([0,1,0,1])
+    plt.show()
     '''
     get confidence files for all human predictions for all top ten teams (model 1?)
     in confidence.py
