@@ -16,7 +16,7 @@ import zipfile
 import tarfile
 
 
-#pred_folder = "/home/nzhou/old computer/Documents/CAFA2/CAFA2_submissions/"  
+pred_folder = "/home/nzhou/old computer/Documents/CAFA2/CAFA2_submissions/"  
 
 #pred_path = open('/home/nzhou/git/CAFAAssess/precrec/M1HS.74.Homo_sapiens_BPO.txt')
 #pred_path_ori = open('/home/nzhou/git/CAFAAssess/precrec/M1HS.74.Homo_sapiens.txt')
@@ -41,7 +41,7 @@ def read_benchmark(namespace):
       
 '''            
 The top ten teams in BPO:  
-          
+BPO:          
 Paccanaro Lab:117
 Tian Lab:85
 MS-kNN:129
@@ -52,6 +52,31 @@ Argot2:94
 PULP: 83
 PFPDB:75
 INGA-Tosatto:119 (no non-HPO human)
+
+MFO:
+MS-knn: 129
+*EVEX:72
+tianlab: 85
+PFPDB:75
+Orengo-FunFams: 127
+*Go2Proto:101
+*SIFTER 2.4: 102
+INGA-Tosatto:119 (no non-HPO human)
+
+Jones-UCL: 
+Argot2: 94
+
+CCO:
+EVEX:72
+Tian Lab:85
+Gough Lab:
+MS-KNN:129
+JONES-UCL
+*CONS:115
+*Rost Lab:97
+PULP:83
+*IASL:86
+ORENGO-FUNFAMS:127
 
 Naive
 BLAST:        
@@ -91,15 +116,15 @@ def prediction_ontology_split_write(pred_path, obo_path):
     cco_out.close()
 
 
-#try Paccanaro Lab first
 
 from os import walk
 def getFileNames(pred_folder):
     filenames = []
+    newfilenames = []
     for (dirpath,dirnames,filename) in walk(pred_folder):
         filenames.extend(filename)
         break
-    return filenames
+    return filenames 
 
 def pred_split(predfile,submission_folder):
     #sys.path.append(submission_folder)
@@ -113,6 +138,14 @@ def pred_split(predfile,submission_folder):
                  prediction_ontology_split_write(handle,obo_path)
                  handle.close()
         obj.close()
+    elif predfile.split('.')[-1]=='tgz' or ''.join(predfile.split('.')[-2:])=='targz':
+        obj = tarfile.open(submission_folder+predfile,'r')
+        for filename in obj.getnames():
+            if 'hpo' not in filename and filename.split('.')[-1]=='txt':
+                handle = obj.extractfile(filename)
+                prediction_ontology_split_write(handle,obo_path)
+                handle.close()
+        obj.close() 
     elif predfile.split('.')[-1]=="gz":
         handle = gzip.open(submission_folder+predfile,'r')
         prediction_ontology_split_write(handle,obo_path)
@@ -121,15 +154,7 @@ def pred_split(predfile,submission_folder):
         handle = open(submission_folder+predfile,'r')
         prediction_ontology_split_write(handle,obo_path)
         handle.close()
-    elif predfile.split('.')[-1]=='tgz':
-        obj = tarfile.open(submission_folder+predfile,'r')
-        for filename in obj.getnames():
-            if 'hpo' not in filename and filename.split('.')[-1]=='txt':
-                handle = obj.extractfile(filename)
-                prediction_ontology_split_write(handle,obo_path)
-                handle.close()
-        obj.close()
-        
+       
 def files_split(teamNumber,human):
     '''
     human is boolean
@@ -144,7 +169,7 @@ def files_split(teamNumber,human):
     os.chdir(pred_folder)
     for i in filelist:
         if human:
-            if i.split('_')[-1].split('.')[0]=='9606' or 'sapien' in i:
+            if '9606' in i or 'sapien' in i:
                 print i
                 pred_split(i,submission_folder)
                 continue
@@ -155,11 +180,11 @@ def files_split(teamNumber,human):
 
 def get_namespace_index(namespace):
     num = None
-    if namespace=='BPO':
+    if namespace=='BPO' or namespace=='bpo':
         num = 0
-    elif namespace=='MFO':
+    elif namespace=='MFO' or namespace=='mfo':
         num = 1
-    elif namespace=='CCO':
+    elif namespace=='CCO' or namespace=='cco':
         num =2
     else:
         raise ValueError("name space name not found, check prediction files")
@@ -173,24 +198,45 @@ main
 #
 
 
-
 if __name__ == '__main__':
     obo_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo.2014-06-01'
-    teamNums = [117,85,129,127,94,83,75]
+    #teamNums = [117,85,129,127,94,83,75]
+    #teamNums = [85,129,127,94,83,75]
+    teamNums = [115,97,86]
+    #teamNums = [72,101,102,115,97,86]
     #These teams were split to 
     bench = [read_benchmark('BPO'), read_benchmark('MFO'), read_benchmark('CCO')]
-    for num in teamNums:    
-        #files_split(num,True)
-        #num =75
+    #For team 115, prediction file is bad, with "GO:GO:", So the orginal file was untarred in the submission folder
+    for num in teamNums:   
+        if num!=115:
+            files_split(num,True)
         os.chdir('/home/nzhou/git/CAFAAssess/confidence/'+str(num)+'/')
         files = getFileNames(os.getcwd())
         for f in files:
-            pred = GOPred()
-            pred.read(open(f))
-            namespace = f.split('.')[-2][-3:]
-            b = bench[get_namespace_index(namespace)]
-            pr = PrecREC(b,pred)
-            pr.printConfidence(os.getcwd()+'/'+f.split('.')[0]+'_confdata.txt')
-        
+            if 'confdata' not in f and f.split('.')[-1]=='txt' and os.path.getsize(f)!=0:
+                print f
+                pred = GOPred()
+                pred.read(open(f))
+                namespace = f.split('.')[-2][-3:]
+                b = bench[get_namespace_index(namespace)]
+                pr = PrecREC(b,pred)
+                print os.getcwd() 
+                pr.printConfidence(os.getcwd()+'/'+f.split('.')[0]+'_confdata.txt')
+'''
+    baseline = ["BLAST","Naive"]
+    for name in baseline:
+        os.chdir('/home/nzhou/git/CAFAAssess/confidence/'+name+'/')
+        files = getFileNames(os.getcwd())
+        for f in files:
+            if 'hpo' in f:
+                continue
+            if 'confdata' not in f and f.split('.')[-1]=='txt':
+                pred = GOPred()
+                pred.read(open(f))
+                namespace = f.split('.')[-2][-3:]
+                b = bench[get_namespace_index(namespace)]
+                pr = PrecREC(b,pred)
+                pr.printConfidence(os.getcwd()+'/'+f.split('.')[0]+'_confdata.txt')
+'''  
 
- 
+

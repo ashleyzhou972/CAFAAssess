@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 #os.chdir('/home/nzhou/git')
 #from Ontology.IO import OboIO
+print os.getcwd()
+sys.path.append('/home/nzhou/git')
 from CAFAAssess.precrec.GOPred import GOPred
 
 
@@ -186,7 +188,7 @@ class PrecREC:
         #count is to count how many terms are above the threshold
         if self.predicted[protein] is not None:
             for term in self.predicted[protein]:
-                if self.predicted[protein][term][0]>threshold:
+                if self.predicted[protein][term][0]>=threshold:
                     #greater but not greater or equal
                     count+=1
                     if self.predicted[protein][term][1] :
@@ -249,7 +251,7 @@ class PrecREC:
         fmax = 0
         pre = []
         rec = []
-        for thres in numpy.linspace(0,0.99,interval):
+        for thres in numpy.linspace(0.01,0.99,interval):
             a,b = self.precision_recall(thres)
             pre.append(a)
             rec.append(b)
@@ -263,11 +265,13 @@ class PrecREC:
         print confidence and True/False to a file
         to be read by R
         '''
+        protindex = 0
         out = open(output_path,'w')
         for prot in self.predicted:
+            protindex += 1
             if self.predicted[prot] is not None:
                 for term in self.predicted[prot]:
-                    out.write("%s\t%s\n" % (self.predicted[prot][term][0],self.predicted[prot][term][1]))
+                    out.write("%s\t%s\t%s\n" % (str(protindex), self.predicted[prot][term][0],self.predicted[prot][term][1]))
         out.close()
 
         
@@ -277,10 +281,10 @@ class PrecREC:
 
 
 if __name__=='__main__':
-    
+    '''
     ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'  
     #This benchmark is the full BPO benchmark
-    benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
+    #benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
     #bench = benchmark(ancestor_path,benchmark_path)
     #bench.propagate()
     #This benchmark is the human only BPO benchmark
@@ -292,7 +296,7 @@ if __name__=='__main__':
     all_pred.read(open(pred_path))
     #b = PrecREC(bench,all_pred)
     c = PrecREC(hs,all_pred)
-    c.printConfidence('/home/nzhou/git/CAFAAssess/confidence/117/newconfdata.txt')
+    #c.printConfidence('/home/nzhou/git/CAFAAssess/confidence/117/newconfdata.txt')
     #print b.precision_recall(0.1)
     print c.precision_recall(0.1)
     #print b.getNumProteins(0.1)
@@ -302,10 +306,62 @@ if __name__=='__main__':
     plt.axis([0,1,0,1])
     plt.show()
     '''
+    '''
     get confidence files for all human predictions for all top ten teams (model 1?)
     in confidence.py
     '''
+    '''
+    Get PR curve and Fmax for all top-performing teams in three ontologies
+    '''
+    bpo = ('/117/PaccanaroLab_1_9606_BPO.txt','/85/tianlab_1_9606_BPO.txt','/129/tu_1_9606_BPO.txt','/127/txt_BPO.txt','/94/txt_BPO.txt','/83/bonneauLab_1_9606_BPO.txt','/75/Homo_sapiens_BPO.txt','/Naive/BN4S_bpo.txt','/BLAST/BB4S_bpo.txt')
+    mfo = ('/129/tu_1_9606_MFO.txt','/72/EVEX_1_9606_MFO.txt','/85/tianlab_1_9606_MFO.txt','/75/Homo_sapiens_MFO.txt','/127/txt_MFO.txt','/101/GO2Proto_1_9606_0_MFO.txt','/102/brennersifter_1_9606_0_MFO.txt','/94/txt_MFO.txt','/Naive/BN4S_mfo.txt','/BLAST/BB4S_mfo.txt')
+    cco = ('/72/EVEX_1_9606_CCO.txt','/85/tianlab_1_9606_CCO.txt','/129/tu_1_9606_CCO.txt','/115/Homo_sapiens_CCO.txt','/83/bonneauLab_1_9606_CCO.txt','/86/IASLAcademiaSinica_1_9606_CCO.txt','/127/txt_CCO.txt','/Naive/BN4S_cco.txt','/BLAST/BB4S_cco.txt')
     
-    
+    #before running this function, make sure that a benchmark instance has been created and propagated.
+    def getplot(filename):
+        fullpath = '/home/nzhou/git/CAFAAssess/confidence'+filename
+        all_pred = GOPred()
+        all_pred.read(open(fullpath))
+        c = PrecREC(hs,all_pred)
+        fm = c.Fmax_output(99)
+        
+        plt.plot(fm[1],fm[0])
+        plt.axis([0,1,0,1])
+        plt.yticks(numpy.arange(0,1,0.1))
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title(fullpath.split('/')[-1].split('.')[0])
+        plt.savefig(fullpath.split('.')[0]+'.png')
+        plt.close()
+        return fm[2]
+        
+    #BPO
+    ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'  
+    benchmark_path =  '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
+    hs = benchmark(ancestor_path, benchmark_path)
+    hs.propagate()
+    bpofm = defaultdict()
+    for i in bpo:
+        bpofm[i] = getplot(i)
+        
+    #MFO
+    ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_mfo.txt'  
+    benchmark_path =  '/home/nzhou/git/CAFAAssess/precrec/leafonly_MFO.txt'
+    hs = benchmark(ancestor_path, benchmark_path)
+    hs.propagate()
+    mfofm = defaultdict()
+    for j in mfo:
+        mfofm[j]=getplot(j)
+    #CCO
+    ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_cco.txt'  
+    benchmark_path =  '/home/nzhou/git/CAFAAssess/precrec/leafonly_CCO.txt'
+    hs = benchmark(ancestor_path, benchmark_path)
+    hs.propagate()
+    ccofm = defaultdict()
+    for k in cco:
+        ccofm[k]=getplot(k)
+        
+
+                    
     
     
