@@ -56,6 +56,8 @@ class GOPred:
     self.data is a dictionary
        key: protein ID
        value: [{'term':go_term_1, 'threshold': threshold_1},...,{'term':go_term_n, 'threshold': threshold_n}]
+    in self.read(pred_path) , pred_path should be a handle
+    Edited by Ashley: 05/26/2016
     """
     def __init__(self):
         self.author = None
@@ -179,14 +181,13 @@ class GOPred:
 
     def read(self, pred_path):
         visited_states = []
-        s_token = 0
         n_accuracy = 0
         first_prediction = True
         first_accuracy = True
         first_keywords = True
         n_models = 0
-	inline = open(pred_path)
-        for inline in inpred: 
+        #inline = open(pred_path)
+        for inline in pred_path: 
             # gzipped files are in bytes. Need to convert to utf-8
             if type(inline) is bytes:
                 inline = inline.decode("utf-8")
