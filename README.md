@@ -9,7 +9,7 @@ To use:
 
 ### 1. Download both CAFAAssess and Ontology repositories
 
-### 2. cd to the nearest root directory that contains both CAFAAssess and Ontology
+### 2. cd to the nearest base directory that contains both CAFAAssess and Ontology
 
 ### 3. Type `python CAFAAssess/precrec_main.py -h` for the usage of this module
 
