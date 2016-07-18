@@ -9,7 +9,8 @@ Created on Wed May 18 11:55:27 2016
 import sys
 sys.path.append('/home/nzhou/git')
 import os
-from CAFAAssess.precRec import GOPred,benchmark,PrecREC
+from os import walk
+from CAFAAssess.precRec import GOPred,PrecREC,read_benchmark
 from Ontology.IO import OboIO
 import gzip
 import zipfile
@@ -21,66 +22,6 @@ pred_folder = "/home/nzhou/old computer/Documents/CAFA2/CAFA2_submissions/"
 #pred_path = open('/home/nzhou/git/CAFAAssess/precrec/M1HS.74.Homo_sapiens_BPO.txt')
 #pred_path_ori = open('/home/nzhou/git/CAFAAssess/precrec/M1HS.74.Homo_sapiens.txt')
 
-
-
-def read_benchmark(namespace):
-    if namespace=='BPO':
-        ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_bpo.txt'
-        benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_BPO.txt'
-    elif namespace=='MFO':
-        ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_mfo.txt'
-        benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_MFO.txt'
-    else:
-        ancestor_path = '/home/nzhou/git/CAFAAssess/precrec/gene_ontology_edit.obo_ancestors_cco.txt'
-        benchmark_path = '/home/nzhou/git/CAFAAssess/precrec/leafonly_CCO.txt'
-                                                                             
-    bench = benchmark(ancestor_path,benchmark_path)
-    bench.propagate()
-    return bench
-
-      
-'''            
-The top ten teams in BPO:  
-BPO:          
-Paccanaro Lab:117
-Tian Lab:85
-MS-kNN:129
-Jones-UCL:114,120,125
-Orengo-FunFams: 127
-Gough Lab:110,111,112
-Argot2:94
-PULP: 83
-PFPDB:75
-INGA-Tosatto:119 (no non-HPO human)
-
-MFO:
-MS-knn: 129
-*EVEX:72
-tianlab: 85
-PFPDB:75
-Orengo-FunFams: 127
-*Go2Proto:101
-*SIFTER 2.4: 102
-INGA-Tosatto:119 (no non-HPO human)
-
-Jones-UCL: 
-Argot2: 94
-
-CCO:
-EVEX:72
-Tian Lab:85
-Gough Lab:
-MS-KNN:129
-JONES-UCL
-*CONS:115
-*Rost Lab:97
-PULP:83
-*IASL:86
-ORENGO-FUNFAMS:127
-
-Naive
-BLAST:        
-'''  
 
 def prediction_ontology_split_write(pred_path, obo_path):
     """
@@ -117,10 +58,9 @@ def prediction_ontology_split_write(pred_path, obo_path):
 
 
 
-from os import walk
+
 def getFileNames(pred_folder):
     filenames = []
-    newfilenames = []
     for (dirpath,dirnames,filename) in walk(pred_folder):
         filenames.extend(filename)
         break
