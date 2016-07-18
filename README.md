@@ -1,10 +1,16 @@
-## CAFAAssess
-prediction files and ontology files should be preprocessed by preprocess.py
 
-precRec.py is the main function to use.
+## CAFAAssess prediction files and ontology files should be preprocessed by preprocess.py
 
-it depends on precrec/GOPred.py
+A command-line interface for assessing a single CAFA prediction file using precision-recall.
 
 All GO files, benchmark files and test prediction files are in /precrec/. 
 
-Used GO release from 06/01/2014, otherwise would generate obsolete terms.
+Default GO release is from 06/01/2014.
+
+To use:
+
+### 1. Download both CAFAAssess and Ontology repositories
+
+### 2. cd to the nearest root directory that contains both CAFAAssess and Ontology
+
+### 3. Type `python CAFAAssess/precrec_main.py -h` for the usage of this function
