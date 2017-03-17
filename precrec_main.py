@@ -1,36 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jul 14 15:02:03 2016
-This creates the command-line interface of the precision-recall calculations in
+Command-line interface of the precision-recall calculations in
 CAFA assessment tool
 @author: Ashley Zhou
+last updated 03/17/2017
 """
 
-import sys
-import os
-sys.path.append(os.getcwd())
 import argparse
-from CAFAAssess.precRec import PrecREC,read_benchmark
-from CAFAAssess.precrec.GOPred import GOPred
+import tests
+from precrec.precRec import PrecREC,read_benchmark
+from precrec.GOPred import GOPred
 import matplotlib.pyplot as plt
 import numpy
+import os
 
-'''
-arguments supplied to main:
-updated on 07/12/2016
-    ontology: 'BPO', 'MFO', 'CCO', 'HPO'
-    team number: e.g. 117
-    species: use taxon ID e.g. 9606 for Homo Sapien
-    model: which model of the submission, e.g. 1,2 or 3 
-    saveplot path: the path where the PR curve plot is saved (should be an absolute path??)
-    #use default go.obo: True or supply obopath (should be an absolute path??)
-    #use default benchmark: True or supply benchmark path (Ontology-specific!!) (should be an absolute path)
-    #submission folder: folder containing all submissions with each team in separate  folders titled by team number
-'''
+
 
 def get_namespace_index(namespace):
     '''
-    copied from confidence.py 07/15/2016
+    convert namespace into indices
     '''
     num = None
     if namespace=='BPO' or namespace=='bpo':
@@ -41,53 +29,62 @@ def get_namespace_index(namespace):
         num =2
     else:
         raise ValueError("name space not found, check prediction files")
-        print namespace
+        print(namespace)
     return num
-'''
-def team_name_converter(team_number):
-    
-    #convert team number to team name for plotting purposes
-    #07/18/2016: waiting for input from actual CAFA3
-    
-    return "teamName"
-    
+
+
 def taxon_name_converter(taxonID):
-    return "taxon"
-'''    
+    #convert from taxonomy ID to name (i.e. from 9606 to HUMAN）
+    taxonTable = {'10116':'RAT','9606':'HUMAN','3702':'ARATH','7955':'DANRE','44689':'DICDI','7227':'DROME','83333':'ECOLI','10090':'MOUSE','208963':'PSEAE','4896':'SCHPO','4932':'YEAST'}
+    return taxonTable[taxonID]    
+  
+if __name__=='__main__':
+    
+    parser = argparse.ArgumentParser(description='Precision- Recall assessment for CAFA predictions.', )
+    parser.add_argument('file',type=open,
+                        help='Input the path of the prediction file. Filename should follow CAFA formats')
+    #CAFA3 raw submission filename formats are listed here:https://www.synapse.org/#!Synapse:syn5840147/wiki/402192
+    #example filename format: Doegroup_1_9606.txt/Doegroup_2_hpo.txt
+    #If prediction file is already split by ontology it should follow Doegroup_1_9606_BPO.txt(or _MFO, _CCO)                  
+    
+    #parser.add_argument('plotfile', help='Input path+filename to save the PR plot')
 
-parser = argparse.ArgumentParser(description='Precision- Recall assessment for CAFA predictions.', )
-parser.add_argument('ontology',help='Input ontology',choices=['BPO','MFO','CCO'])
-parser.add_argument('team',help = 'Input team number',type=int)
-parser.add_argument('taxon', help= 'Input taxon ID, this will only be used to name the plot', type=int)
-#If it's all species combined, enter 0 as taxon ID(07/18/2016)
-#parser.add_argument('model',help = 'Input model number', choices=['1','2','3'])
-parser.add_argument('file',type=open,
-                    help='Input the path of the prediction file. File should be split according to ontology, and should be a .txt file')
-parser.add_argument('plotfile', help='Input path+filename to save the PR plot')
-#parser.parse_args(['BPO','117','./CAFAAssess/confidence/117/PaccanaroLab_1_9606_BPO.txt','./CAFAAssess/confidence/117/'])
-args = parser.parse_args()
-
-print('Evaluating %s.\n' % args.file.name)
-print('Ontology: %s\n' % args.ontology)
-print('Species: %s\n' % args.taxon)
-print('Team: %s\n' % args.team)
-#print('model: %s\n' % args.taxon)
-
-bench = [read_benchmark('BPO'), read_benchmark('MFO'), read_benchmark('CCO')]
-index = get_namespace_index(args.ontology)
-all_pred = GOPred()
-all_pred.read(args.file)
-c = PrecREC(bench[index],all_pred)
-fm = c.Fmax_output(99)
-
-plt.plot(fm[1],fm[0])
-plt.axis([0,1,0,1])
-plt.yticks(numpy.arange(0,1,0.1))
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title(str(args.team)+" "+str(args.taxon)+" "+args.ontology)
-plt.savefig(args.plotfile,dpi=200)
-plt.close()
-
-print('fmax value for this prediction is: %s.\n' % fm[2])
-print('PR plot is saved to %s.\n' % args.plotfile)
+    parser.add_argument('type',help = 'Input evaluation type: No Knowledge or Limited Knowledge', choices=['type1','type2','all'])    
+    parser.add_argument('teamnum',help='Input team number',type=int)
+    parser.add_argument('mode', help = 'Input the evaluation mode: full or partial', choices = ['full','partial'])
+    args = parser.parse_args()
+    
+    print('Evaluating %s.\n' % args.file.name)
+    
+    #first split the prediction file into three ontologies
+    all_pred = GOPred()
+    pred_path = args.file
+    obo_path = './precrec/go_20130615-termdb.obo'
+    all_pred.read_and_split_and_write(obo_path,pred_path)
+    info = [all_pred.author,all_pred.model,all_pred.keywords,all_pred.taxon]
+    print('author: %s\n' % info[0])
+    print('model: %s\n' % info[1])
+    print('keywords: %s\n' % info[2][0])
+    print('species:%s\n' % info[3])
+    
+    #parse file name 
+    namefields = os.path.basename(pred_path.name).split('.')[0].split('_')
+        
+    #read benchmark for three ontologies
+    for onto in ['bpo','cco','mfo']:
+        print('ontology: %s\n' % onto)
+        b = read_benchmark(onto, taxon_name_converter(namefields[2]),args.type,'./precrec/benchmark/',obo_path)
+        path = os.path.splitext(pred_path.name)[0]+'_'+onto.upper()+'.txt'
+        c = PrecREC(b,path)
+        if c.exist:
+            fm = c.Fmax_output(args.mode)
+            print('fmax: %s\n' % fm[2])
+            print('threshold giving fmax: %s\n' % fm[3])
+            print('coverage: %s\n' % fm[4])
+            yx = tests.read_Cafa2_sheet(onto, info[3],args.teamnum,info[1],args.type,args.mode)
+            if yx[1]==round(fm[2],3):
+                print('Fmax Match!\n')
+                if yx[0]==round(fm[4],2):
+                    print('Coverage Match!\n')
+                    if yx[2]==fm[3]:
+                        print('Threshold Match!\n')
